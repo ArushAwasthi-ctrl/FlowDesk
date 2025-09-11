@@ -1,0 +1,20 @@
+{
+  "name": "flowdesk",
+  "version": "1.0.0",
+  "description": "A basic project management software",
+  "main": "index.js",
+  "scripts": {
+    "dev": "nodemon index.js"
+  },
+  "keywords": [
+    "Node",
+    "Js",
+    "JavaScript"
+  ],
+  "author": "Arush Awasthi",
+  "license": "ISC",
+  "devDependencies": {
+    "nodemon": "^3.1.10",
+    "prettier": "3.6.2"
+  }
+}
