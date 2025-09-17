@@ -1,12 +1,13 @@
 let express = require("express");
 let cors = require("cors");
 let app = express();
-
+let cookieparser = require('cookie-parser');
 // basic config
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static("/public"));
+app.use(cookieparser());
 
 // cors config
 app.use(cors());

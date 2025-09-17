@@ -3,7 +3,6 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const { randomBytes, createHash } = require("node:crypto");
 
-
 const userSchema = new mongoose.Schema(
   {
     avatar: {
@@ -67,7 +66,7 @@ userSchema.pre("save", async function (next) {
 });
 
 userSchema.methods.isPasswordCorrect = async function (password) {
-  return bcrypt.compare(password, this.password);
+  return await bcrypt.compare(password, this.password);
 };
 userSchema.methods.createAccessToken = function () {
   return jwt.sign(
@@ -90,14 +89,16 @@ userSchema.methods.createRefreshToken = function () {
 };
 userSchema.methods.createTemporaryToken = function () {
   const unhashedToken = randomBytes(16).toString("hex");
-  const hashedToken = createHash("sha256")
-    .update(unhashedToken)
-    .digest("hex");
+  const hashedToken = createHash("sha256").update(unhashedToken).digest("hex");
 
-    const tokenExpiry = Date.now() +(20*60*1000);
-    return {unhashedToken , hashedToken, tokenExpiry}
+  const tokenExpiry = Date.now() + 20 * 60 * 1000;
+  return { unhashedToken, hashedToken, tokenExpiry };
+};
+userSchema.methods.validateEmailToken = function (unhashedToken) {
+  const checkToken = createHash("sha256").update(unhashedToken).digest("hex");
+  return checkToken === this.hashedToken;
 };
 
 const User = mongoose.model("User", userSchema);
 
-module.exports = { User};
+module.exports = { User };
