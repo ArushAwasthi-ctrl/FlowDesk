@@ -52,7 +52,7 @@ const registerUser = asyncHandler(async (req, res) => {
   user.emailVerificationToken = hashedToken;
   user.emailVerificationExpiry = tokenExpiry;
   await user.save({ validateBeforeSave: false });
-
+  req.user = user;
   // Send verification email
   await sendEmail({
     email: user.email,
@@ -92,7 +92,7 @@ const loginUser = asyncHandler(async (req, res) => {
   if (!user) {
     throw new APIError(400, "User does not exist");
   }
-  const validatePassword =  await user.isPasswordCorrect(password);
+  const validatePassword = await user.isPasswordCorrect(password);
   if (!validatePassword) {
     throw new APIError(400, "Invalid password");
   }
@@ -101,17 +101,17 @@ const loginUser = asyncHandler(async (req, res) => {
     throw new APIError(400, "Email not verified yet");
   }
 
-  const { accessToken, refreshToken } = await generateAccessTokenAndRefreshTokens(
-    user._id,
-  );
+  const { accessToken, refreshToken } =
+    await generateAccessTokenAndRefreshTokens(user._id);
 
   const loggedInUser = await User.findById(user._id).select(
-    "-password -refreshToken -emailVerificationToken -emailVerificationExpiry"
+    "-password -refreshToken -emailVerificationToken -emailVerificationExpiry",
   );
   const options = {
     httpOnly: true,
     secure: true,
   };
+  console.log(req.user);
 
   return res
     .status(200)
@@ -157,10 +157,119 @@ const verifyEmail = asyncHandler(async (req, res) => {
   await user.save({ validateBeforeSave: false });
 
   return res.status(200).json(
-    new APIResponse(200, {
-      user:user
-    }, "Email verified successfully ")
+    new APIResponse(
+      200,
+      {
+        user: user,
+      },
+      "Email verified successfully ",
+    ),
   );
 });
 
-module.exports = { registerUser, loginUser , verifyEmail };
+const logoutUser = asyncHandler(async (req, res) => {
+  console.log(req.user);
+  try {
+    await User.findByIdAndUpdate(
+      req.user._id,
+      {
+        $set: {
+          refreshToken: undefined,
+        },
+      },
+      {
+        new: true,
+      },
+    );
+  } catch (error) {
+    throw new APIError(404, "User not Logged In");
+  }
+
+  const options = {
+    httpOnly: true,
+    secure: true,
+  };
+  return res
+    .status(200)
+    .clearCookie("accessToken", options)
+    .clearCookie("refreshToken", options)
+    .json(
+      new APIResponse(
+        400,
+        {
+          user: req.user,
+        },
+        "User Succesfully Logged Out",
+      ),
+    );
+});
+
+const currentUser = asyncHandler(async (req, res) => {
+  console.log(req.user);
+
+  return res
+    .status(200)
+    .json(new APIResponse(200, req.user, "Current user fetched succesfully"));
+});
+
+const reSendEmail = asyncHandler(async (req, res) => {
+  const id = req.user?._id;
+  if(!id)
+  {
+    throw new APIError(404 , "User not Logged In");
+  }
+  const user = await User.findById(id);
+  if(!user)
+  {
+    throw new APIError(404 , "User does not Exist");
+  }
+  if(user.isEmailVerified)
+  {
+     throw new APIError(409 , "User already Verified");
+  }
+  const { unhashedToken, hashedToken, tokenExpiry } =
+    user.createTemporaryToken();
+
+  user.emailVerificationToken = hashedToken;
+  user.emailVerificationExpiry = tokenExpiry;
+  await user.save({ validateBeforeSave: false });
+
+  // Send verification email
+  await sendEmail({
+    email: user.email,
+    subject: "Please verify your email",
+    mailGenContent: EmailVerificationMailGenContent(
+      user.username,
+      `${req.protocol}://${req.get("host")}/api/v1/auth/verify-email/${unhashedToken}`,
+    ),
+  });
+
+  // Fetch user without sensitive fields
+  const createdUser = await User.findById(user._id).select(
+    "-password -refreshToken -emailVerificationToken -emailVerificationExpiry",
+  );
+
+  if (!createdUser) {
+    throw new APIError(500, "Something went wrong while registering the user");
+  }
+
+
+  return res
+    .status(201)
+    .json(
+      new APIResponse(
+        201,
+        { user: createdUser },
+        "User registered successfully and a verification email has been sent.",
+      ),
+    );
+});
+
+module.exports = {
+  registerUser,
+  loginUser,
+  verifyEmail,
+  logoutUser,
+  currentUser,
+  reSendEmail,
+};

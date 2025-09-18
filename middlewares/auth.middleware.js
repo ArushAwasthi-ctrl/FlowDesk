@@ -10,7 +10,7 @@ const AccessTokenValidation = asyncHandler(async (req, res, next) => {
     req.header("Authorization")?.replace("Bearer ", "");
 
   if (!token) {
-    throw new APIResponse(401, "Unauthorized access");
+    throw new APIError(401, "Unauthorized access");
   }
 
   try {
@@ -27,3 +27,4 @@ const AccessTokenValidation = asyncHandler(async (req, res, next) => {
     throw new APIError(401, "Invalid Token Access");
   }
 });
+module.exports = {AccessTokenValidation}
